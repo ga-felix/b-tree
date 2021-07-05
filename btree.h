@@ -7,16 +7,16 @@ typedef int Record;
 
 /* Defines B+ Tree's structure. Keep in mind that:
 1 - pointers must be void** as it can storage either
-pointer to Record* or Node*.
+pointers to Record or Node.
 2 - the exercise specifies that keys must be kept
-at leaf node level. */
+at leaf node level only. */
 
 typedef struct Node {
-    struct Node *parent;
-    void **pointers;
+    struct Node* parent;
+    void** pointers;
     bool isLeaf;
     int keysNumber;
-    Record *keys;
+    Record* keys; /* Array of keys */
 } Node;
 
 /* Returns initialized B+ Tree's root node */

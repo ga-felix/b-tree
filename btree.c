@@ -1,12 +1,23 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include "btree.h"
 
 /* Returns initialized B+ Tree's root node */
 
 Node* initializeTree() {
-    return NULL;
+    Node* root = NULL;
+
+    if(!(root = (Node*) calloc(1, sizeof(Node)))) {
+        fprintf(stderr, "[B+TREE] Initialization failed");
+        exit(1);
+    }
+    
+    root->parent = NULL;
+    root->pointers = NULL;
+    root->keys = NULL;
+    root->isLeaf = true;
+    root->keysNumber = 0;
+    return root;
 }
 
 /* Print the tree. Check "enunciado.pdf" to
