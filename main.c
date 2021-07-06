@@ -19,7 +19,7 @@ void chopLine(char* line) {
 
 /* Read input file and triggers every command described */
 
-void readCommands(FILE* input) {
+void readCommands(Node* tree, FILE* input) {
 
     if (!input) {
         fprintf(stderr, "[READ] Input file stream is NULL (file missing?)");
@@ -32,10 +32,16 @@ void readCommands(FILE* input) {
     int value = 0;
     char command;
     while ((read = getline(&line, &length, input)) != EOF) {
+        //fprintf(stdout, "%s", line);
         command = line[0];
         if (command == 'i') { /* Insert record operation */
             chopLine(line);
             value = atoi(line);
+            insertRecord(tree, value);
+            for(int i = 0; i < tree->keysNumber; i++) {
+                printf("%d ", tree->keys[i]);
+            }
+            printf("\n");
         }
 
         if (command == 'r') { /* Remove record operation */
@@ -64,7 +70,7 @@ int main(int argc, char *argv[]) {
 
     FILE* input = fopen(argv[1], "r");
     FILE* output = fopen(argv[2], "w+");
-    Node* root = initializeTree();
-    readCommands(input);
+    Node* root = initializeNode();
+    readCommands(root, input);
     exit(0);
 }

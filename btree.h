@@ -1,5 +1,7 @@
 #include <stdbool.h>
-#define MIN_ORDER 3
+#define ORDER 3
+#define MAX ORDER * 2
+#define MAXKEYS MAX - 1
 
 /* Sets type of records the tree should storage */
 
@@ -13,10 +15,10 @@ at leaf node level only. */
 
 typedef struct Node {
     struct Node* parent;
-    void** pointers;
+    void** pointers[ORDER * 2];
     bool isLeaf;
     int keysNumber;
-    Record* keys; /* Array of keys */
+    Record keys[ORDER * 2 - 1]; /* Array of keys */
 } Node;
 
 /* Returns initialized B+ Tree's root node */
