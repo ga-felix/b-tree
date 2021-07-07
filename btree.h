@@ -24,12 +24,12 @@ typedef struct Node {
 /* Print the tree. Check "enunciado.pdf" to
 further instructions (there are many!) */
 
-bool printTree(Node* tree);
+void printTree(Node* tree);
 
 /* Insert a record */
 
-bool insertRecord(Node* tree, Record key);
+void insertRecord(Node* tree, Record key);
 
 /* Remove a record, if exists */
 
-bool removeRecord(Node* tree, Record key);
+void removeRecord(Node* tree, Record key);

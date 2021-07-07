@@ -69,8 +69,15 @@ int main(int argc, char *argv[]) {
     FILE* output = fopen(argv[2], "w+");
     Node* root = createNode(true);
     readCommands(root, input);
+    printf("\n");
     for(int i = 0; i < root->keysNumber; i++) {
         printf("%d ", root->keys[i]);
+    }
+    if(root->parent) {
+        printf("\nNo more root!\n");
+        for(int i = 0; i < root->parent->keysNumber; i++) {
+            printf("%d ", root->parent->keys[i]);
+        }
     }
     exit(0);
 }

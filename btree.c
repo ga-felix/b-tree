@@ -5,15 +5,13 @@
 /* Print the tree. Check "enunciado.pdf" to
 further instructions (there are many!) */
 
-bool printTree(Node* tree) {
-    return true;
+void printTree(Node* tree) {
 }
 
 
 /* Remove a record, if exists */
 
-bool removeRecord(Node* tree, Record key) {
-    return true;
+void removeRecord(Node* tree, Record key) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -43,12 +41,87 @@ Node* createNode(bool isLeaf) {
     node->isLeaf = isLeaf;
     return node;
 }
+/*
+Node* findParent(Node* cursor, Node* child) {
+    if(cursor->isLeaf || cursor->pointers[0]->isLeaf) {
+        fprintf(stderr, "[B+TREE] Cursor node it's a leaf");
+        return NULL;
+    }
+    int index;
+    for(index = 0; index < cursor->keysNumber + 1; index++) {
+
+    }
+}*/
+
+void insertInternal(Node* cursor, Node* child, Record key) {
+    if(cursor->keysNumber < MAXKEYS) {
+        int index;
+        for(index = 0; index < cursor->keysNumber && key > cursor->keys[index]; index++);
+        int end;
+        for(end = cursor->keysNumber; end > index; end--) {
+            cursor->keys[end] = cursor->keys[end - 1];
+        }
+        for(end = cursor->keysNumber + 1; end > index + 1; end--) {
+            cursor->pointers[end] = cursor->pointers[end - 1];
+        }
+        cursor->keys[index] = key;
+        cursor->keysNumber++;
+        cursor->pointers[index + 1] = child;
+        child->parent = cursor;
+    } else {
+        Node* newNode = createNode(false);
+        int temporaryNode[MAXKEYS + 1];
+        void** temporaryPointers;
+        if(!(temporaryPointers = (void**) calloc(MAXKEYS + 2, sizeof(void*)))) {
+            fprintf(stderr, "[B+TREE] Node initialization failed");
+            exit(1);
+        }
+        int index;
+        for(index = 0; index < MAXKEYS; index++) {
+            temporaryNode[index] = cursor->keys[index];
+        }
+        for(index = 0; index < MAXKEYS + 1; index++) {
+            temporaryPointers[index] = (void*) cursor->pointers[index];
+        }
+        int end;
+        for(index = 0; index < MAXKEYS && key > temporaryNode[index]; index++);
+        for(end = MAXKEYS + 1; end > index; end--) {
+            temporaryNode[end] = temporaryNode[end - 1];
+        }
+        temporaryNode[index] = key;
+        for(end = MAXKEYS + 2; end > index + 1; end--) {
+            temporaryPointers[end] = temporaryPointers[end - 1];
+        }
+        temporaryPointers[index + 1] = (void*) child;
+        cursor->keysNumber = (MAXKEYS + 1) / 2;
+        newNode->keysNumber = MAXKEYS - (MAXKEYS + 1) / 2;
+        for(index = 0, end = cursor->keysNumber + 1; index < newNode->keysNumber; index++, end++) {
+            newNode->keys[index] = temporaryNode[end];
+        }
+        for(index = 0, end = cursor->keysNumber + 1; index < newNode->keysNumber + 1; index++, end++) {
+            newNode->pointers[index] = (Node*) temporaryPointers[end];
+        }
+
+        if(!cursor->parent) {
+            Node* newRoot = createNode(false);
+            newRoot->keys[0] = cursor->keys[cursor->keysNumber];
+            newRoot->pointers[0] = (void*) cursor;
+            newRoot->pointers[1] = (void*) newNode;
+            newRoot->keysNumber = 1;
+            cursor->parent = newRoot;
+            newNode->parent = newRoot;
+        } else {
+            insertInternal(cursor->parent, newNode, cursor->keys[cursor->keysNumber]);
+        }
+    }
+
+}
 
 /* Insert a record in the tree 
 @params: Node* root -> B+ tree's root, Record key -> record to be inserted
 @returns: boolean that indicates if op succeded */
 
-bool insertRecord(Node* root, Record key) {
+void insertRecord(Node* root, Record key) {
     if(!root) { // If given tree is invalid
         fprintf(stderr, "[B+TREE] Cannot insert into NULL tree reference");
         exit(1);
@@ -65,8 +138,11 @@ bool insertRecord(Node* root, Record key) {
                 cursor = (Node*) cursor->pointers[index];
                 break;
             }
+            if(index == cursor->keysNumber - 1) {
+                cursor = (Node*) cursor->pointers[index + 1]; // Key can be greater than all keys here
+                break;
+            }
         }
-        cursor = (Node*) cursor->pointers[index]; // Key is greater than all keys here
     }
 
     if(cursor->keysNumber < MAXKEYS) { // If node is not full (easiest case)
@@ -95,28 +171,29 @@ bool insertRecord(Node* root, Record key) {
         }
         temporaryNode[index] = key; // Inserts key on temporary overflowed storage
         cursor->keysNumber = (MAXKEYS + 1) / 2; // Splitting nodes
-        newLeaf->keysNumber = (MAXKEYS + 1) / 2;
+        newLeaf->keysNumber = MAXKEYS + 1 - (MAXKEYS + 1) / 2;
         cursor->pointers[cursor->keysNumber] = (void*) newLeaf; // Leaf nodes points to other leaf node
-        newLeaf->pointers[newLeaf->keysNumber] = cursor->pointers[MAXKEYS + 1]; // Leaf nodes points to other leaf node
-        cursor->pointers[MAXKEYS + 1] = NULL;
+        newLeaf->pointers[newLeaf->keysNumber] = cursor->pointers[MAXKEYS]; // Leaf nodes points to other leaf node
+        cursor->pointers[MAXKEYS] = NULL;
         for(index = 0; index < cursor->keysNumber; index++) { // Giving back the keys correctly
             cursor->keys[index] = temporaryNode[index];
         }
         for(index = 0, end = cursor->keysNumber; index < newLeaf->keysNumber; index++, end++) { // Giving back the keys correctly
             newLeaf->keys[index] = temporaryNode[end];
         }
-        if(cursor == root) { // If it's root node
+        if(!cursor->parent) { // If it's root node
             Node* newRoot = createNode(false);
             newRoot->keys[0] = newLeaf->keys[0];
             newRoot->pointers[0] = (void*) cursor;
             newRoot->pointers[1] = (void*) newLeaf;
             newRoot->keysNumber = 1;
+            cursor->parent = newRoot;
+            newLeaf->parent = newRoot;
         } else { // Hardest of hardest... Splitting time.
-
+            insertInternal(parent, newLeaf, newLeaf->keys[0]);
         }
 
     }
-    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
