@@ -19,10 +19,10 @@ void chopLine(char* line) {
 
 /* Read input file and triggers every command described */
 
-void readCommands(Node* tree, FILE* input) {
+void readCommands(BPlusTree* tree, FILE* input, FILE* output) {
 
-    if (!input) {
-        fprintf(stderr, "[READ] Input file stream is NULL (file missing?)");
+    if (!input || !output) {
+        fprintf(stderr, "[READ] Input / output file stream is NULL (file missing?)");
         exit(1);
     }
 
@@ -46,6 +46,7 @@ void readCommands(Node* tree, FILE* input) {
         }
         
         if (command == 'p') { /* Print tree operation */
+            printTree(tree->root, output);
         }
 
         if (command == 'f') { /* Stop input reading */
@@ -67,17 +68,20 @@ int main(int argc, char *argv[]) {
 
     FILE* input = fopen(argv[1], "r");
     FILE* output = fopen(argv[2], "w+");
-    Node* root = createNode(true);
-    readCommands(root, input);
+    BPlusTree* tree = createTree();
+    readCommands(tree, input, output);
     printf("\n");
-    for(int i = 0; i < root->keysNumber; i++) {
-        printf("%d ", root->keys[i]);
+    for(int i = 0; i < tree->root->keysNumber; i++) {
+        printf("%d ", tree->root->keys[i]);
     }
-    if(root->parent) {
+    /*
+    Node* child = (Node*) tree->root->pointers[1];
+    if(child) {
         printf("\nNo more root!\n");
-        for(int i = 0; i < root->parent->keysNumber; i++) {
-            printf("%d ", root->parent->keys[i]);
+        for(int i = 0; i < child->keysNumber; i++) {
+            printf("%d ", child->keys[i]);
         }
     }
+    */
     exit(0);
 }

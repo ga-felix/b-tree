@@ -21,15 +21,21 @@ typedef struct Node {
     int keysNumber;
 } Node;
 
+typedef struct {
+    Node* root;
+} BPlusTree;
+
+BPlusTree* createTree();
+
 /* Print the tree. Check "enunciado.pdf" to
 further instructions (there are many!) */
 
-void printTree(Node* tree);
+void printTree(Node* cursor, FILE* output);
 
 /* Insert a record */
 
-void insertRecord(Node* tree, Record key);
+void insertRecord(BPlusTree* tree, Record key);
 
 /* Remove a record, if exists */
 
-void removeRecord(Node* tree, Record key);
+void removeRecord(BPlusTree* tree, Record key);

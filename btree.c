@@ -3,18 +3,40 @@
 #include "btree.h"
 
 /* Print the tree. Check "enunciado.pdf" to
-further instructions (there are many!) */
+further instructions (there are many!) 
+@params: Node* cursor -> It must be root level node, FILE* output -> File to write output */
 
-void printTree(Node* tree) {
+void printTree(Node* cursor, FILE* output) {
+    fprintf(output, "(");
+    if(cursor->isLeaf) {
+        int index;
+        for(index = 0; index < cursor->keysNumber - 1; index++) {
+            fprintf(output, "%d ", cursor->keys[index]);
+        }
+        fprintf(output, "%d)", cursor->keys[index]);
+        return;
+    }
+
+    int index;
+    int end;
+    Node* child;
+    for(index = 0, end = 0; index < cursor->keysNumber + 1; index++) {
+        child = (Node*) cursor->pointers[index];
+        printTree(child, output);
+        if(end < cursor->keysNumber) {
+            fprintf(output, " %d ", cursor->keys[end]);
+            end++;
+        }
+    }
+
+    fprintf(output, ")\n");
 }
 
 
 /* Remove a record, if exists */
 
-void removeRecord(Node* tree, Record key) {
+void removeRecord(BPlusTree* tree, Record key) {
 }
-
-///////////////////////////////////////////////////////////////////////////////////////////////
 
 /* Create generic node
 @params: bool isLeaf -> if true, then the created node is a leaf.
@@ -41,19 +63,26 @@ Node* createNode(bool isLeaf) {
     node->isLeaf = isLeaf;
     return node;
 }
-/*
-Node* findParent(Node* cursor, Node* child) {
-    if(cursor->isLeaf || cursor->pointers[0]->isLeaf) {
-        fprintf(stderr, "[B+TREE] Cursor node it's a leaf");
-        return NULL;
-    }
-    int index;
-    for(index = 0; index < cursor->keysNumber + 1; index++) {
 
-    }
-}*/
+/* Create empty BPlus tree
+@returns: a new empty tree */
 
-void insertInternal(Node* cursor, Node* child, Record key) {
+BPlusTree* createTree() {
+    BPlusTree* tree = NULL;
+    if(!(tree = (BPlusTree*) calloc(1, sizeof(BPlusTree)))) {
+        fprintf(stderr, "[B+TREE] Tree initialization failed");
+        exit(1);
+    }
+    tree->root = createNode(true);
+    return tree;
+}
+
+/* Performs insertion when internal node is not full or split it otherwhise
+@params: BPlusTree* tree -> the tree contaning root node, Node* cursor -> the
+internal node being verified, Node* child -> child node, Record key -> record
+to be inserted. */
+
+void insertInternal(BPlusTree* tree, Node* cursor, Node* child, Record key) {
     if(cursor->keysNumber < MAXKEYS) {
         int index;
         for(index = 0; index < cursor->keysNumber && key > cursor->keys[index]; index++);
@@ -110,8 +139,9 @@ void insertInternal(Node* cursor, Node* child, Record key) {
             newRoot->keysNumber = 1;
             cursor->parent = newRoot;
             newNode->parent = newRoot;
+            tree->root = newRoot;
         } else {
-            insertInternal(cursor->parent, newNode, cursor->keys[cursor->keysNumber]);
+            insertInternal(tree, cursor->parent, newNode, cursor->keys[cursor->keysNumber]);
         }
     }
 
@@ -121,17 +151,17 @@ void insertInternal(Node* cursor, Node* child, Record key) {
 @params: Node* root -> B+ tree's root, Record key -> record to be inserted
 @returns: boolean that indicates if op succeded */
 
-void insertRecord(Node* root, Record key) {
-    if(!root) { // If given tree is invalid
+void insertRecord(BPlusTree* tree, Record key) {
+    if(!tree->root) { // If given tree is invalid
         fprintf(stderr, "[B+TREE] Cannot insert into NULL tree reference");
         exit(1);
     }
 
-    Node* cursor = root;
-    Node* parent = NULL;
+    Node* cursor = tree->root;
+    //Node* parent = NULL;
 
     while(!cursor->isLeaf) { // While a leaf isn't reached
-        parent = cursor;
+        //parent = cursor;
         int index;
         for(index = 0; index < cursor->keysNumber; index++) {
             if(key < cursor->keys[index]) {
@@ -189,11 +219,10 @@ void insertRecord(Node* root, Record key) {
             newRoot->keysNumber = 1;
             cursor->parent = newRoot;
             newLeaf->parent = newRoot;
+            tree->root = newRoot;
         } else { // Hardest of hardest... Splitting time.
-            insertInternal(parent, newLeaf, newLeaf->keys[0]);
+            insertInternal(tree, cursor->parent, newLeaf, newLeaf->keys[0]);
         }
 
     }
 }
-
-///////////////////////////////////////////////////////////////////////////////////////////////
