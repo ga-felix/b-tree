@@ -15,15 +15,11 @@ at leaf node level only. */
 
 typedef struct Node {
     struct Node* parent;
-    void** pointers[ORDER * 2];
+    void** pointers;
+    Record* keys;
     bool isLeaf;
     int keysNumber;
-    Record keys[ORDER * 2 - 1]; /* Array of keys */
 } Node;
-
-/* Returns initialized B+ Tree's root node */
-
-Node* initializeTree();
 
 /* Print the tree. Check "enunciado.pdf" to
 further instructions (there are many!) */

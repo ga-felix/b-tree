@@ -29,19 +29,15 @@ void readCommands(Node* tree, FILE* input) {
     char* line = NULL;
     size_t length = 0;
     ssize_t read;
-    int value = 0;
+    Record value;
     char command;
     while ((read = getline(&line, &length, input)) != EOF) {
-        //fprintf(stdout, "%s", line);
+        printf("%s", line);
         command = line[0];
         if (command == 'i') { /* Insert record operation */
             chopLine(line);
             value = atoi(line);
             insertRecord(tree, value);
-            for(int i = 0; i < tree->keysNumber; i++) {
-                printf("%d ", tree->keys[i]);
-            }
-            printf("\n");
         }
 
         if (command == 'r') { /* Remove record operation */
@@ -53,7 +49,8 @@ void readCommands(Node* tree, FILE* input) {
         }
 
         if (command == 'f') { /* Stop input reading */
-            exit(0);
+            break;
+            //exit(0);
         }
     }
     fclose(input);
@@ -70,7 +67,10 @@ int main(int argc, char *argv[]) {
 
     FILE* input = fopen(argv[1], "r");
     FILE* output = fopen(argv[2], "w+");
-    Node* root = initializeNode();
+    Node* root = createNode(true);
     readCommands(root, input);
+    for(int i = 0; i < root->keysNumber; i++) {
+        printf("%d ", root->keys[i]);
+    }
     exit(0);
 }
