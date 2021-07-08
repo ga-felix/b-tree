@@ -36,6 +36,44 @@ void printTree(Node* cursor, FILE* output) {
 /* Remove a record, if exists */
 
 void removeRecord(BPlusTree* tree, Record key) {
+    if(!tree->root) {
+        fprintf(stderr, "[B+TREE] Cannot remove into NULL tree reference");
+        exit(1);
+    }
+
+    Node* cursor = tree->root;
+    while(!cursor->isLeaf) { // While a leaf isn't reached
+        int index;
+        for(index = 0; index < cursor->keysNumber; index++) {
+            if(key < cursor->keys[index]) {
+                cursor = (Node*) cursor->pointers[index];
+                break;
+            }
+            if(index == cursor->keysNumber - 1) {
+                cursor = (Node*) cursor->pointers[index + 1]; // Key can be greater than all keys here
+                break;
+            }
+        }
+    }
+
+    int minKeys = ORDER - 1;
+    if(cursor->keysNumber > minKeys) { // A node must containt at least ORDER - 1 keys
+        int index;
+        for(index = 0; index < cursor->keysNumber && key != cursor->keys[index]; index++);
+        if(index == cursor->keysNumber) {
+            fprintf(stderr, "[B+TREE] Record was not found %d\n", key);
+            return;
+        }
+        int begin;
+        for(begin = index; begin < cursor->keysNumber; begin++) {
+            cursor->keys[begin] = cursor->keys[begin + 1]; // Shift left one space
+        }
+        cursor->keysNumber--;
+        cursor->pointers[cursor->keysNumber] = cursor->pointers[cursor->keysNumber + 1];
+        cursor->pointers[cursor->keysNumber + 1] = NULL;
+    } else {
+
+    }
 }
 
 /* Create generic node

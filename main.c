@@ -43,6 +43,7 @@ void readCommands(BPlusTree* tree, FILE* input, FILE* output) {
         if (command == 'r') { /* Remove record operation */
             chopLine(line);
             value = atoi(line);
+            removeRecord(tree, value);
         }
         
         if (command == 'p') { /* Print tree operation */
@@ -71,18 +72,5 @@ int main(int argc, char *argv[]) {
     FILE* output = fopen(argv[2], "w+");
     BPlusTree* tree = createTree();
     readCommands(tree, input, output);
-    printf("\n");
-    for(int i = 0; i < tree->root->keysNumber; i++) {
-        printf("%d ", tree->root->keys[i]);
-    }
-    /*
-    Node* child = (Node*) tree->root->pointers[1];
-    if(child) {
-        printf("\nNo more root!\n");
-        for(int i = 0; i < child->keysNumber; i++) {
-            printf("%d ", child->keys[i]);
-        }
-    }
-    */
     exit(0);
 }
