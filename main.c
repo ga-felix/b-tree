@@ -47,6 +47,7 @@ void readCommands(BPlusTree* tree, FILE* input, FILE* output) {
         
         if (command == 'p') { /* Print tree operation */
             printTree(tree->root, output);
+            fprintf(output, "\n");
         }
 
         if (command == 'f') { /* Stop input reading */

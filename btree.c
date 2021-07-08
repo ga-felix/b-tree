@@ -29,7 +29,7 @@ void printTree(Node* cursor, FILE* output) {
         }
     }
 
-    fprintf(output, ")\n");
+    fprintf(output, ")");
 }
 
 
