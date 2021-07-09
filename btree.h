@@ -34,8 +34,8 @@ void printTree(Node* cursor, FILE* output);
 
 /* Insert a record */
 
-void insertRecord(BPlusTree* tree, Record key);
+bool insertRecord(BPlusTree* tree, Record key);
 
 /* Remove a record, if exists */
 
-void removeRecord(BPlusTree* tree, Record key);
+bool removeRecord(BPlusTree* tree, Record key);

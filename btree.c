@@ -2,6 +2,32 @@
 #include <stdlib.h>
 #include "btree.h"
 
+void shiftPointers(void** pointers, int size, bool right) {
+    int index;
+    if(right) {
+        for(index = size; index > 0; index--) {
+            pointers[index] = pointers[index];
+        }
+    } else {
+        for(index = 0; index < size + 1; index++) {
+            pointers[index] = pointers[index + 1];
+        }
+    }
+}
+
+void shiftKeys(Record* keys, int size, bool right) {
+    int index;
+    if(right) {
+        for(index = size - 1; index > 0; index--) {
+            keys[index] = keys[index - 1];
+        }
+    } else {
+        for(index = 0; index < size; index++) {
+            keys[index] = keys[index + 1];
+        }
+    }
+}
+
 /* Print the tree. Check "enunciado.pdf" to
 further instructions (there are many!) 
 @params: Node* cursor -> It must be root level node, FILE* output -> File to write output */
@@ -37,11 +63,18 @@ void printTree(Node* cursor, FILE* output) {
 }
 
 
+/* Frees node's memory
+@params: Node* node -> node to have memory freed */
+
 void destroyNode(Node* node) {
     free(node->keys);
     free(node->pointers);
     free(node);
 }
+
+/* Performs internal's node removal
+@params: BPlusTree* tree -> tree to be altered, Node* cursor -> navigation pointer,
+Node* child -> auxiliar navigation pointer, Record key -> the key to be removed */
 
 void removeInternal(BPlusTree* tree, Node* cursor, Node* child, Record key) { // Reviewed
     if(!cursor->parent) {
@@ -148,9 +181,11 @@ void removeInternal(BPlusTree* tree, Node* cursor, Node* child, Record key) { //
     }
 }
 
-/* Remove a record, if exists */
+/* Remove a record, if exists
+@params: BPlusTree* tree -> tree to be altered, Record key -> key to be removed
+@returns: boolean that indicates if operation succeded */
 
-void removeRecord(BPlusTree* tree, Record key) { // Reviewed
+bool removeRecord(BPlusTree* tree, Record key) { // Reviewed
     if(!tree->root) {
         fprintf(stderr, "[B+TREE] Cannot remove into NULL tree reference");
         exit(1);
@@ -186,7 +221,7 @@ void removeRecord(BPlusTree* tree, Record key) { // Reviewed
     }
     if(!keyExists) {
         fprintf(stderr, "[B+TREE] Key doesn't exists\n");
-        return;
+        return false;
     }
     int begin;
     for(begin = index; begin < cursor->keysNumber; begin++) {
@@ -197,7 +232,7 @@ void removeRecord(BPlusTree* tree, Record key) { // Reviewed
         for(index = 0; index < cursor->keysNumber + 1; index++) {
             cursor->pointers[index] = NULL;
         }
-        return;
+        return true;
     }
     cursor->pointers[cursor->keysNumber] = cursor->pointers[cursor->keysNumber + 1];
     cursor->pointers[cursor->keysNumber + 1] = NULL;
@@ -215,7 +250,7 @@ void removeRecord(BPlusTree* tree, Record key) { // Reviewed
             neighboor->pointers[neighboor->keysNumber] = (void*) cursor;
             neighboor->pointers[neighboor->keysNumber + 1] = NULL;
             cursor->parent->keys[left] = cursor->keys[0];
-            return;
+            return true;
         }
         neighboor = cursor->parent->pointers[right];
         if(right <= cursor->parent->keysNumber && neighboor->keysNumber > ORDER - 1) {
@@ -230,7 +265,7 @@ void removeRecord(BPlusTree* tree, Record key) { // Reviewed
                 neighboor->keys[index] = neighboor->keys[index + 1];
             }
             cursor->parent->keys[right - 1] = neighboor->keys[0];
-            return;
+            return true;
         }
 
         if(left >= 0) {
@@ -255,6 +290,7 @@ void removeRecord(BPlusTree* tree, Record key) { // Reviewed
             destroyNode(neighboor);
         }
     }
+    return true;
 }
 
 /* Create generic node
@@ -363,25 +399,20 @@ void insertInternal(BPlusTree* tree, Node* cursor, Node* child, Record key) { //
             insertInternal(tree, cursor->parent, newNode, cursor->keys[cursor->keysNumber]);
         }
     }
-    return;
-
 }
 
 /* Insert a record in the tree 
 @params: Node* root -> B+ tree's root, Record key -> record to be inserted
-@returns: boolean that indicates if op succeded */
+@returns: boolean that indicates if operation succeded */
 
-void insertRecord(BPlusTree* tree, Record key) {
-    if(!tree->root) { // If given tree is invalid
+bool insertRecord(BPlusTree* tree, Record key) {
+    if(!tree->root) {
         fprintf(stderr, "[B+TREE] Cannot insert into NULL tree reference");
-        exit(1);
+        return false;
     }
 
     Node* cursor = tree->root;
-    //Node* parent = NULL;
-
-    while(!cursor->isLeaf) { // While a leaf isn't reached
-        //parent = cursor;
+    while(!cursor->isLeaf) {
         int index;
         for(index = 0; index < cursor->keysNumber; index++) {
             if(key < cursor->keys[index]) {
@@ -389,49 +420,49 @@ void insertRecord(BPlusTree* tree, Record key) {
                 break;
             }
             if(index == cursor->keysNumber - 1) {
-                cursor = (Node*) cursor->pointers[index + 1]; // Key can be greater than all keys here
+                cursor = (Node*) cursor->pointers[index + 1];
                 break;
             }
         }
     }
 
-    if(cursor->keysNumber < MAXKEYS) { // If node is not full (easiest case)
+    if(cursor->keysNumber < MAXKEYS) {
         int index;
         for(index = 0; index < cursor->keysNumber && key > cursor->keys[index]; index++);
         int end;
         for(end = cursor->keysNumber; end > index; end--) {
-            cursor->keys[end] = cursor->keys[end - 1]; // Shift right one space
+            cursor->keys[end] = cursor->keys[end - 1];
         }
-        cursor->keys[index] = key; // Inserts the record
+        cursor->keys[index] = key;
         cursor->keysNumber++;
 
         cursor->pointers[cursor->keysNumber] = cursor->pointers[cursor->keysNumber - 1];
         cursor->pointers[cursor->keysNumber - 1] = NULL;
-    } else { // Node is full! (hardest case)
+    } else {
         Node* newLeaf = createNode(true);
-        Record temporaryNode[MAXKEYS + 1]; // Extra space will be needed to find 'median' later
+        Record temporaryNode[MAXKEYS + 1];
         int index;
         for(index = 0; index < MAXKEYS; index++) {
-            temporaryNode[index] = cursor->keys[index]; // Copy keys
+            temporaryNode[index] = cursor->keys[index];
         }
         for(index = 0; index < MAXKEYS && key > temporaryNode[index]; index++);
         int end;
         for(end = MAXKEYS + 1; end > index; end--) {
-            temporaryNode[end] = temporaryNode[end - 1]; // Shift right one space
+            temporaryNode[end] = temporaryNode[end - 1];
         }
-        temporaryNode[index] = key; // Inserts key on temporary overflowed storage
-        cursor->keysNumber = ((MAXKEYS + 1) / 2) - 1; // Splitting nodes
+        temporaryNode[index] = key;
+        cursor->keysNumber = ((MAXKEYS + 1) / 2) - 1;
         newLeaf->keysNumber = (MAXKEYS + 1 - (MAXKEYS + 1) / 2) + 1;
-        cursor->pointers[cursor->keysNumber] = (void*) newLeaf; // Leaf nodes points to other leaf node
-        newLeaf->pointers[newLeaf->keysNumber] = cursor->pointers[MAXKEYS]; // Leaf nodes points to other leaf node
+        cursor->pointers[cursor->keysNumber] = (void*) newLeaf;
+        newLeaf->pointers[newLeaf->keysNumber] = cursor->pointers[MAXKEYS];
         cursor->pointers[MAXKEYS] = NULL;
-        for(index = 0; index < cursor->keysNumber; index++) { // Giving back the keys correctly
+        for(index = 0; index < cursor->keysNumber; index++) {
             cursor->keys[index] = temporaryNode[index];
         }
-        for(index = 0, end = cursor->keysNumber; index < newLeaf->keysNumber; index++, end++) { // Giving back the keys correctly
+        for(index = 0, end = cursor->keysNumber; index < newLeaf->keysNumber; index++, end++) {
             newLeaf->keys[index] = temporaryNode[end];
         }
-        if(!cursor->parent) { // If it's root node
+        if(!cursor->parent) {
             Node* newRoot = createNode(false);
             newRoot->keys[0] = newLeaf->keys[0];
             newRoot->pointers[0] = (void*) cursor;
@@ -440,9 +471,9 @@ void insertRecord(BPlusTree* tree, Record key) {
             cursor->parent = newRoot;
             newLeaf->parent = newRoot;
             tree->root = newRoot;
-        } else { // Hardest of hardest... Splitting time.
+        } else {
             insertInternal(tree, cursor->parent, newLeaf, newLeaf->keys[0]);
         }
-
     }
+    return true;
 }
