@@ -114,7 +114,7 @@ void removeInternal(BPlusTree* tree, Node* cursor, Node* child, Record key) { //
         cursor->pointers[index] = cursor->pointers[index + 1]; 
     }
     cursor->keysNumber--;
-    if(cursor->keysNumber <= ORDER - 1) {
+    if(cursor->keysNumber < ORDER - 1) {
         if(!cursor->parent) return;
         int left, right;
         for(begin = 0; begin < cursor->parent->keysNumber + 1; begin++) {
@@ -241,7 +241,7 @@ bool removeRecord(BPlusTree* tree, Record key) { // Reviewed
     }
     cursor->pointers[cursor->keysNumber] = cursor->pointers[cursor->keysNumber + 1];
     cursor->pointers[cursor->keysNumber + 1] = NULL;
-    if(cursor->keysNumber <= ORDER - 1) { // Underflow
+    if(cursor->keysNumber < ORDER - 1) { // Underflow
         Node* neighboor = cursor->parent->pointers[left];
         if(left >= 0 && neighboor->keysNumber > ORDER - 1) {
             for(index = cursor->keysNumber; index > 0; index--) {
