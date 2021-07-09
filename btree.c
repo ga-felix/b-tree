@@ -1,29 +1,34 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "btree.h"
-
-void shiftPointers(void** pointers, int size, bool right) {
-    int index;
+        /*for(end = cursor->keysNumber; end > index; end--) {
+            cursor->keys[end] = cursor->keys[end - 1];
+        }
+        for(end = cursor->keysNumber + 1; end > index + 1; end--) {
+            cursor->pointers[end] = cursor->pointers[end - 1];
+        }*/
+void shiftPointers(Node* node, int index, bool right) {
+    int end;
     if(right) {
-        for(index = size; index > 0; index--) {
-            pointers[index] = pointers[index];
+        for(end = node->keysNumber + 1; end > index + 1; end--) {
+            node->pointers[end] = node->pointers[end - 1];
         }
     } else {
-        for(index = 0; index < size + 1; index++) {
-            pointers[index] = pointers[index + 1];
+        for(end = 0; end < index; end++) {
+            node->pointers[end] = node->pointers[end + 1];
         }
     }
 }
 
-void shiftKeys(Record* keys, int size, bool right) {
-    int index;
+void shiftKeys(Node* node, int index, bool right) {
+    int end;
     if(right) {
-        for(index = size - 1; index > 0; index--) {
-            keys[index] = keys[index - 1];
+        for(end = node->keysNumber; end > index; end--) {
+            node->keys[end] = node->keys[end - 1];
         }
     } else {
-        for(index = 0; index < size; index++) {
-            keys[index] = keys[index + 1];
+        for(end = 0; index < end; end++) {
+            node->keys[end] = node->keys[end + 1];
         }
     }
 }
@@ -236,7 +241,7 @@ bool removeRecord(BPlusTree* tree, Record key) { // Reviewed
     }
     cursor->pointers[cursor->keysNumber] = cursor->pointers[cursor->keysNumber + 1];
     cursor->pointers[cursor->keysNumber + 1] = NULL;
-    if(cursor->keysNumber < ORDER - 1) { // Underflow
+    if(cursor->keysNumber <= ORDER - 1) { // Underflow
         Node* neighboor = cursor->parent->pointers[left];
         if(left >= 0 && neighboor->keysNumber > ORDER - 1) {
             for(index = cursor->keysNumber; index > 0; index--) {
@@ -341,13 +346,8 @@ void insertInternal(BPlusTree* tree, Node* cursor, Node* child, Record key) { //
     if(cursor->keysNumber < MAXKEYS) {
         int index;
         for(index = 0; index < cursor->keysNumber && key > cursor->keys[index]; index++);
-        int end;
-        for(end = cursor->keysNumber; end > index; end--) {
-            cursor->keys[end] = cursor->keys[end - 1];
-        }
-        for(end = cursor->keysNumber + 1; end > index + 1; end--) {
-            cursor->pointers[end] = cursor->pointers[end - 1];
-        }
+        shiftKeys(cursor, index, true);
+        shiftPointers(cursor, index, true);
         cursor->keys[index] = key;
         cursor->keysNumber++;
         cursor->pointers[index + 1] = child;
@@ -435,7 +435,6 @@ bool insertRecord(BPlusTree* tree, Record key) {
         }
         cursor->keys[index] = key;
         cursor->keysNumber++;
-
         cursor->pointers[cursor->keysNumber] = cursor->pointers[cursor->keysNumber - 1];
         cursor->pointers[cursor->keysNumber - 1] = NULL;
     } else {
