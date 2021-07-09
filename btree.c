@@ -33,6 +33,33 @@ void printTree(Node* cursor, FILE* output) {
 }
 
 
+void destroyNode(Node* node) {
+    free(node->keys);
+    free(node->pointers);
+    free(node);
+}
+
+void removeInternal(BPlusTree* tree, Node* cursor, Node* child, Record key) {
+    if(!cursor->parent) {
+        if(cursor->keysNumber == 1) {
+            if(cursor->pointers[1] == child) {
+                destroyNode(child);
+                tree->root = cursor->pointers[0];
+                return;
+            } else if(cursor->pointers[0] == child) {
+                destroyNode(child);
+                tree->root = cursor->pointers[1];
+                return;
+            }
+            destroyNode(cursor);
+        }
+    }
+    int begin;
+    for(begin = 0; begin < cursor->keysNumber; begin++) {
+        
+    }
+}
+
 /* Remove a record, if exists */
 
 void removeRecord(BPlusTree* tree, Record key) {
@@ -42,37 +69,107 @@ void removeRecord(BPlusTree* tree, Record key) {
     }
 
     Node* cursor = tree->root;
+    int left, right;
     while(!cursor->isLeaf) { // While a leaf isn't reached
         int index;
         for(index = 0; index < cursor->keysNumber; index++) {
+            left = index - 1;
+            right = index + 1;
             if(key < cursor->keys[index]) {
                 cursor = (Node*) cursor->pointers[index];
                 break;
             }
             if(index == cursor->keysNumber - 1) {
+                left = index;
+                right = index + 2;
                 cursor = (Node*) cursor->pointers[index + 1]; // Key can be greater than all keys here
                 break;
             }
         }
     }
 
-    int minKeys = ORDER - 1;
-    if(cursor->keysNumber > minKeys) { // A node must containt at least ORDER - 1 keys
-        int index;
-        for(index = 0; index < cursor->keysNumber && key != cursor->keys[index]; index++);
-        if(index == cursor->keysNumber) {
-            fprintf(stderr, "[B+TREE] Record was not found %d\n", key);
+    bool keyExists = false;
+    int index;
+    for(index = 0; index < cursor->keysNumber; index++) {
+        if(cursor->keys[index] == key) {
+            keyExists = true;
+            break;
+        }
+    }
+    if(!keyExists) {
+        fprintf(stderr, "[B+TREE] Key doesn't exists\n");
+        return;
+    }
+    int begin;
+    for(begin = index; begin < cursor->keysNumber; begin++) {
+        cursor->keys[begin] = cursor->keys[begin + 1];
+    }
+    cursor->keysNumber--;
+    if(!cursor->parent) {
+        for(index = 0; index < cursor->keysNumber + 1; index++) {
+            cursor->pointers[index] = NULL;
+        }
+        return;
+    }
+    cursor->pointers[cursor->keysNumber] = cursor->pointers[cursor->keysNumber + 1];
+    cursor->pointers[cursor->keysNumber + 1] = NULL;
+    if(cursor->keysNumber < ORDER - 1) { // Underflow
+        Node* neighboor = cursor->parent->pointers[left];
+        if(neighboor->keysNumber > ORDER - 1 && left >= 0) {
+            for(index = cursor->keysNumber; index > 0; index--) {
+                cursor->keys[index] = cursor->keys[index - 1];
+            }
+            cursor->keysNumber++;
+            cursor->pointers[cursor->keysNumber] = cursor->pointers[cursor->keysNumber - 1];
+            cursor->pointers[cursor->keysNumber - 1] = NULL;
+            cursor->keys[0] = neighboor->keys[neighboor->keysNumber - 1];
+            neighboor->keysNumber--;
+            neighboor->pointers[neighboor->keysNumber] = (void*) cursor;
+            neighboor->pointers[neighboor->keysNumber + 1] = NULL;
+            cursor->parent->keys[left] = cursor->keys[0];
             return;
         }
-        int begin;
-        for(begin = index; begin < cursor->keysNumber; begin++) {
-            cursor->keys[begin] = cursor->keys[begin + 1]; // Shift left one space
+        neighboor = cursor->parent->pointers[right];
+        if(right <= cursor->parent->keysNumber && neighboor->keysNumber > ORDER - 1) {
+            cursor->keysNumber++;
+            cursor->pointers[cursor->keysNumber] = cursor->pointers[cursor->keysNumber - 1];
+            cursor->pointers[cursor->keysNumber - 1] = NULL;
+            cursor->keys[cursor->keysNumber - 1] = neighboor->keys[0];
+            neighboor->keysNumber--;
+            neighboor->pointers[neighboor->keysNumber] = neighboor->pointers[neighboor->keysNumber + 1];
+            neighboor->pointers[neighboor->keysNumber + 1] = NULL;
+            for(index = 0; index < neighboor->keysNumber; index++) {
+                neighboor->keys[index] = neighboor->keys[index + 1];
+            }
+            cursor->parent->keys[right - 1] = neighboor->keys[0];
+            return;
         }
-        cursor->keysNumber--;
-        cursor->pointers[cursor->keysNumber] = cursor->pointers[cursor->keysNumber + 1];
-        cursor->pointers[cursor->keysNumber + 1] = NULL;
-    } else {
 
+        if(left >= 0) {
+            neighboor = cursor->parent->pointers[left];
+            for(index = neighboor->keysNumber, begin = 0; begin < cursor->keysNumber; index++, begin++) {
+                neighboor->keys[index] = cursor->keys[begin];
+            }
+            neighboor->pointers[neighboor->keysNumber] = NULL;
+            neighboor->keysNumber += cursor->keysNumber;
+            neighboor->pointers[neighboor->keysNumber] = cursor->pointers[cursor->keysNumber];
+            removeInternal(tree, cursor->parent, cursor, cursor->parent->keys[left]);
+            free(cursor->keys);
+            free(cursor->pointers);
+            free(cursor);
+        } else if(right <= cursor->parent->keysNumber) {
+            neighboor = cursor->parent->pointers[right];
+            for(index = cursor->keysNumber, begin = 0; begin < neighboor->keysNumber; index++, begin++) {
+                cursor->keys[index] = neighboor->keys[begin];
+            }
+            cursor->pointers[cursor->keysNumber] = NULL;
+            cursor->keysNumber += neighboor->keysNumber;
+            cursor->pointers[cursor->keysNumber] = neighboor->pointers[neighboor->keysNumber];
+            removeInternal(tree, cursor->parent, neighboor, cursor->parent->keys[right - 1]);
+            free(neighboor->keys);
+            free(neighboor->pointers);
+            free(neighboor);
+        }
     }
 }
 
