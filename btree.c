@@ -7,6 +7,10 @@ further instructions (there are many!)
 @params: Node* cursor -> It must be root level node, FILE* output -> File to write output */
 
 void printTree(Node* cursor, FILE* output) {
+    if(!cursor->pointers[0] && !cursor->parent && cursor->keys[0] == 0) {
+        fprintf(output, "Vazia");
+        return;
+    }
     fprintf(output, "(");
     if(cursor->isLeaf) {
         int index;
@@ -39,7 +43,7 @@ void destroyNode(Node* node) {
     free(node);
 }
 
-void removeInternal(BPlusTree* tree, Node* cursor, Node* child, Record key) {
+void removeInternal(BPlusTree* tree, Node* cursor, Node* child, Record key) { // Reviewed
     if(!cursor->parent) {
         if(cursor->keysNumber == 1) {
             if(cursor->pointers[1] == child) {
@@ -54,15 +58,99 @@ void removeInternal(BPlusTree* tree, Node* cursor, Node* child, Record key) {
             destroyNode(cursor);
         }
     }
-    int begin;
+    int begin, index;
     for(begin = 0; begin < cursor->keysNumber; begin++) {
-        
+        if(cursor->keys[begin] == key) {
+            break;
+        }
+    }
+    for(index = begin; index <  cursor->keysNumber; index++) {
+        cursor->keys[index] = cursor->keys[index + 1]; 
+    }
+    for(begin = 0; begin < cursor->keysNumber + 1; begin++) {
+        if(cursor->pointers[begin] == child) {
+            break;
+        }
+    }
+    for(index = begin; index < cursor->keysNumber + 1; index++) {
+        cursor->pointers[index] = cursor->pointers[index + 1]; 
+    }
+    cursor->keysNumber--;
+    if(cursor->keysNumber <= ORDER - 1) {
+        if(!cursor->parent) return;
+        int left, right;
+        for(begin = 0; begin < cursor->parent->keysNumber + 1; begin++) {
+            if(cursor->parent->pointers[begin] == cursor) {
+                left = begin - 1;
+                right = begin + 1;
+                break;
+            }
+        }
+        Node* neighboor = cursor->parent->pointers[left];
+        if(left >= 0 && neighboor->keysNumber > ORDER - 1) {
+            for(index = cursor->keysNumber; index > 0; index--) {
+                cursor->keys[index] = cursor->keys[index - 1];
+            }
+            cursor->keys[0] = cursor->parent->keys[left];
+            cursor->parent->keys[left] = neighboor->keys[neighboor->keysNumber - 1];
+            for(index = cursor->keysNumber + 1; index > 0; index--) {
+                cursor->pointers[index] = cursor->pointers[index - 1];
+            }
+            cursor->pointers[0] = neighboor->pointers[neighboor->keysNumber];
+            cursor->keysNumber++;
+            neighboor->keysNumber--;
+            return;
+        }
+
+        neighboor = cursor->parent->pointers[right];
+        if(right <= cursor->parent->keysNumber && neighboor->keysNumber > ORDER - 1) {
+            cursor->keys[cursor->keysNumber] = cursor->parent->keys[begin];
+            cursor->parent->keys[begin] = neighboor->keys[0];
+            for(index = 0; index < neighboor->keysNumber - 1; index++) {
+                neighboor->keys[index] = neighboor->keys[index + 1];
+            }
+            cursor->pointers[cursor->keysNumber + 1] = neighboor->pointers[0];
+            for(index = 0; index < neighboor->keysNumber; index++) {
+                neighboor->pointers[index] = neighboor->pointers[index + 1];
+            }
+            cursor->keysNumber++;
+            neighboor->keysNumber--;
+            return;
+        }
+
+        neighboor = cursor->parent->pointers[left];
+        if(left >= 0) {
+            neighboor->keys[neighboor->keysNumber] = cursor->parent->keys[left];
+            for(index = neighboor->keysNumber + 1, begin = 0; begin < cursor->keysNumber; begin++) {
+                neighboor->keys[index] = cursor->keys[begin];
+            }
+            for(index = neighboor->keysNumber + 1, begin = 0; begin < cursor->keysNumber + 1; begin++) {
+                neighboor->pointers[index] = cursor->pointers[begin];
+                cursor->pointers[begin] = NULL;
+            }
+            neighboor->keysNumber += cursor->keysNumber + 1;
+            cursor->keysNumber = 0;
+            removeInternal(tree, cursor->parent, cursor, cursor->parent->keys[left]);
+        } else if(right <= cursor->parent->keysNumber) {
+            neighboor = cursor->parent->pointers[right];
+            cursor->keys[cursor->keysNumber] = cursor->parent->keys[right - 1];
+            for(index = cursor->keysNumber + 1, begin = 0; begin < neighboor->keysNumber; begin++) {
+                cursor->keys[index] = neighboor->keys[begin];
+            }
+            for(index = cursor->keysNumber + 1, begin = 0; begin < neighboor->keysNumber + 1; begin++) {
+                cursor->pointers[index] = neighboor->pointers[begin];
+                neighboor->pointers[begin] = NULL;
+            }
+            cursor->keysNumber += neighboor->keysNumber + 1;
+            neighboor->keysNumber = 0;
+            removeInternal(tree, cursor->parent, neighboor, cursor->parent->keys[right - 1]);
+        }
     }
 }
 
 /* Remove a record, if exists */
 
-void removeRecord(BPlusTree* tree, Record key) {
+void removeRecord(BPlusTree* tree, Record key) { // Reviewed
     if(!tree->root) {
         fprintf(stderr, "[B+TREE] Cannot remove into NULL tree reference");
         exit(1);
@@ -115,7 +203,7 @@ void removeRecord(BPlusTree* tree, Record key) {
     cursor->pointers[cursor->keysNumber + 1] = NULL;
     if(cursor->keysNumber < ORDER - 1) { // Underflow
         Node* neighboor = cursor->parent->pointers[left];
-        if(neighboor->keysNumber > ORDER - 1 && left >= 0) {
+        if(left >= 0 && neighboor->keysNumber > ORDER - 1) {
             for(index = cursor->keysNumber; index > 0; index--) {
                 cursor->keys[index] = cursor->keys[index - 1];
             }
@@ -154,9 +242,7 @@ void removeRecord(BPlusTree* tree, Record key) {
             neighboor->keysNumber += cursor->keysNumber;
             neighboor->pointers[neighboor->keysNumber] = cursor->pointers[cursor->keysNumber];
             removeInternal(tree, cursor->parent, cursor, cursor->parent->keys[left]);
-            free(cursor->keys);
-            free(cursor->pointers);
-            free(cursor);
+            destroyNode(cursor);
         } else if(right <= cursor->parent->keysNumber) {
             neighboor = cursor->parent->pointers[right];
             for(index = cursor->keysNumber, begin = 0; begin < neighboor->keysNumber; index++, begin++) {
@@ -166,9 +252,7 @@ void removeRecord(BPlusTree* tree, Record key) {
             cursor->keysNumber += neighboor->keysNumber;
             cursor->pointers[cursor->keysNumber] = neighboor->pointers[neighboor->keysNumber];
             removeInternal(tree, cursor->parent, neighboor, cursor->parent->keys[right - 1]);
-            free(neighboor->keys);
-            free(neighboor->pointers);
-            free(neighboor);
+            destroyNode(neighboor);
         }
     }
 }
@@ -217,7 +301,7 @@ BPlusTree* createTree() {
 internal node being verified, Node* child -> child node, Record key -> record
 to be inserted. */
 
-void insertInternal(BPlusTree* tree, Node* cursor, Node* child, Record key) {
+void insertInternal(BPlusTree* tree, Node* cursor, Node* child, Record key) { // Reviewed
     if(cursor->keysNumber < MAXKEYS) {
         int index;
         for(index = 0; index < cursor->keysNumber && key > cursor->keys[index]; index++);
@@ -279,6 +363,7 @@ void insertInternal(BPlusTree* tree, Node* cursor, Node* child, Record key) {
             insertInternal(tree, cursor->parent, newNode, cursor->keys[cursor->keysNumber]);
         }
     }
+    return;
 
 }
 
@@ -335,8 +420,8 @@ void insertRecord(BPlusTree* tree, Record key) {
             temporaryNode[end] = temporaryNode[end - 1]; // Shift right one space
         }
         temporaryNode[index] = key; // Inserts key on temporary overflowed storage
-        cursor->keysNumber = (MAXKEYS + 1) / 2; // Splitting nodes
-        newLeaf->keysNumber = MAXKEYS + 1 - (MAXKEYS + 1) / 2;
+        cursor->keysNumber = ((MAXKEYS + 1) / 2) - 1; // Splitting nodes
+        newLeaf->keysNumber = (MAXKEYS + 1 - (MAXKEYS + 1) / 2) + 1;
         cursor->pointers[cursor->keysNumber] = (void*) newLeaf; // Leaf nodes points to other leaf node
         newLeaf->pointers[newLeaf->keysNumber] = cursor->pointers[MAXKEYS]; // Leaf nodes points to other leaf node
         cursor->pointers[MAXKEYS] = NULL;

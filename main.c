@@ -52,8 +52,7 @@ void readCommands(BPlusTree* tree, FILE* input, FILE* output) {
         }
 
         if (command == 'f') { /* Stop input reading */
-            break;
-            //exit(0);
+            exit(0);
         }
     }
     fclose(input);
