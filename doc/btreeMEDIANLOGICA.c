@@ -385,19 +385,27 @@ void insertInternal(BPlusTree* tree, Node* cursor, Node* child, Record key) { //
             temporaryNode[signal] = temporaryNode[signal - 1];
         }
         temporaryNode[index] = key;
+        int maxKeys = MAXKEYS;
+        Record median = temporaryNode[maxKeys / 2];
         for(signal = MAXKEYS + 2; signal > index + 1; signal--) {
             temporaryPointers[signal] = temporaryPointers[signal - 1];
         }
         temporaryPointers[index + 1] = (void*) child;
-        cursor->keysNumber = (MAXKEYS + 1) / 2; // 3
-        newNode->keysNumber = MAXKEYS - (MAXKEYS + 1) / 2;
+        int shift;
+        if(median == temporaryNode[maxKeys / 2]) {
+            shift = 1;
+        } else {
+            shift = 0;
+        }
+        cursor->keysNumber = ((MAXKEYS + 1) / 2) - shift;
+        newNode->keysNumber = (MAXKEYS - (MAXKEYS + 1) / 2) + shift;
         for(index = 0, signal = cursor->keysNumber + 1; index < newNode->keysNumber; index++, signal++) {
             newNode->keys[index] = temporaryNode[signal];
         }
         for(index = 0, signal = cursor->keysNumber + 1; index < newNode->keysNumber + 1; index++, signal++) {
             newNode->pointers[index] = (Node*) temporaryPointers[signal];
         }
-
+        newNode->parent = cursor->parent;
         if(!cursor->parent) {
             Node* newRoot = createNode(false);
             newRoot->keys[0] = cursor->keys[cursor->keysNumber];
@@ -453,17 +461,26 @@ bool insertRecord(BPlusTree* tree, Record key) {
         for(index = 0; index < MAXKEYS; index++) {
             temporaryNode[index] = cursor->keys[index];
         }
+        int maxKeys = MAXKEYS;
+        Record median = temporaryNode[maxKeys / 2];
         for(index = 0; index < MAXKEYS && key > temporaryNode[index]; index++);
         int signal;
         for(signal = MAXKEYS + 1; signal > index; signal--) {
             temporaryNode[signal] = temporaryNode[signal - 1];
         }
         temporaryNode[index] = key;
-        cursor->keysNumber = ((MAXKEYS + 1) / 2) - 1;
-        newLeaf->keysNumber = (MAXKEYS + 1 - (MAXKEYS + 1) / 2) + 1;
+        int shift;
+        if(median == temporaryNode[maxKeys / 2]) {
+            shift = 1;
+        } else {
+            shift = 0;
+        }
+        cursor->keysNumber = ((MAXKEYS + 1) / 2) - shift;
+        newLeaf->keysNumber = (MAXKEYS + 1 - (MAXKEYS + 1) / 2) + shift;
         cursor->pointers[cursor->keysNumber] = (void*) newLeaf;
         newLeaf->pointers[newLeaf->keysNumber] = cursor->pointers[MAXKEYS];
         cursor->pointers[MAXKEYS] = NULL;
+        newLeaf->parent = cursor->parent;
         for(index = 0; index < cursor->keysNumber; index++) {
             cursor->keys[index] = temporaryNode[index];
         }
