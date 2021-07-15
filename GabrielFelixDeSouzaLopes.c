@@ -354,51 +354,36 @@ BPlusTree* createTree() {
 internal node being verified, Node* child -> child node, Record key -> record
 to be inserted. */
 
-void insertInternal(BPlusTree* tree, Node* cursor, Node* child, Record key) { // Reviewed
-    if(cursor->keysNumber < MAXKEYS) {
-        int index;
-        for(index = 0; index < cursor->keysNumber && key > cursor->keys[index]; index++);
-        shiftKeys(cursor, cursor->keysNumber, index, true);
-        shiftPointers(cursor, cursor->keysNumber + 1, index + 1, true);
-        cursor->keys[index] = key;
-        cursor->keysNumber++;
-        cursor->pointers[index + 1] = child;
-        child->parent = cursor;
-    } else {
+bool insertInternal(BPlusTree* tree, Node* cursor) { // Reviewed
+    if(cursor->keysNumber >= MAXKEYS) {
         Node* newNode = createNode(false);
         int index, signal;
         int median = (MAXKEYS) / 2;
         Record medianValue = cursor->keys[median];
-        printf("median internal %d %d\n", median, key);
-        for(index = 0, signal = median; index < median + 1; index++, signal++) {
+        cursor->keysNumber = median - 0;
+        newNode->keysNumber = median + 1;
+        newNode->parent = cursor->parent;
+        for(index = 0, signal = median; index < cursor->keysNumber + 1; index++, signal++) {
             newNode->keys[index] = cursor->keys[signal];
         }
-        for(index = 0, signal = median; index < median + 2; index++, signal++) {
+        for(index = 0, signal = median; index < cursor->keysNumber + 2; index++, signal++) {
             newNode->pointers[index] = cursor->pointers[signal];
         }
-        cursor->keysNumber = median;
-        newNode->keysNumber = median + 1;
-        if(key >= medianValue) {
-            for(index = 0; index < newNode->keysNumber && key > newNode->keys[index]; index++);
-            shiftKeys(newNode, newNode->keysNumber, index, true);
-            shiftPointers(newNode, newNode->keysNumber + 1, index + 1, true);
-            newNode->keys[index] = key;
-            newNode->pointers[index + 1] = (void*) child;
-            newNode->keysNumber++;
-            printf("\nnew key %d", key);
+
+        if(cursor->isLeaf) {
+            newNode->isLeaf = true;
+            cursor->pointers[cursor->keysNumber] = newNode;
+            newNode->pointers[newNode->keysNumber] = cursor->pointers[MAXKEYS];
+            cursor->pointers[MAXKEYS] = NULL;
         } else {
-            for(index = 0; index < cursor->keysNumber && key > cursor->keys[index]; index++);
-            shiftKeys(cursor, cursor->keysNumber, index, true);
-            shiftPointers(cursor, cursor->keysNumber + 1, index + 1, true);
-            cursor->keys[index] = key;
-            printf("\nc key %d", key);
-            cursor->pointers[index + 1] = (void*) child;
-            cursor->keysNumber++;
+            shiftKeys(newNode, 0, newNode->keysNumber - 1, false);
+            shiftPointers(newNode, 0, newNode->keysNumber, false);
+            newNode->keysNumber--;
         }
 
         if(!cursor->parent) {
             Node* newRoot = createNode(false);
-            newRoot->keys[0] = cursor->keys[cursor->keysNumber];
+            newRoot->keys[0] = medianValue;
             newRoot->pointers[0] = (void*) cursor;
             newRoot->pointers[1] = (void*) newNode;
             newRoot->keysNumber = 1;
@@ -406,9 +391,19 @@ void insertInternal(BPlusTree* tree, Node* cursor, Node* child, Record key) { //
             newNode->parent = newRoot;
             tree->root = newRoot;
         } else {
-            insertInternal(tree, cursor->parent, newNode, medianValue);//cursor->keys[cursor->keysNumber]);
+            Node* parent = cursor->parent;
+            //insertInternal(tree, parent);
+            for(index = 0; index < parent->keysNumber && medianValue > parent->keys[index]; index++);
+            shiftKeys(parent, parent->keysNumber, index, true);
+            shiftPointers(parent, parent->keysNumber + 1, index + 1, true);
+            parent->keys[index] = medianValue;
+            parent->pointers[index] = cursor;
+            parent->pointers[index + 1] = newNode;
+            parent->keysNumber++;
         }
+        return true;
     }
+    return false;
 }
 
 /* Insert a record in the tree 
@@ -422,66 +417,35 @@ bool insertRecord(BPlusTree* tree, Record key) {
     }
 
     Node* cursor = tree->root;
-    while(!cursor->isLeaf) {
-        int index;
-        for(index = 0; index < cursor->keysNumber; index++) {
-            if(key < cursor->keys[index]) {
-                cursor = (Node*) cursor->pointers[index];
-                break;
-            }
-            if(index == cursor->keysNumber - 1) {
-                cursor = (Node*) cursor->pointers[index + 1];
-                break;
+    int index;
+    while(true) {
+        bool splitted = insertInternal(tree, cursor);
+        if(splitted) {
+            for(index = 0; index < cursor->parent->keysNumber && key > cursor->parent->keys[index]; index++);
+            cursor = cursor->parent->pointers[index];
+        }
+        if(cursor->isLeaf) {
+            break;
+        }
+        if(!splitted) {
+            for(index = 0; index < cursor->keysNumber; index++) {
+                if(key < cursor->keys[index]) {
+                    cursor = (Node*) cursor->pointers[index];
+                    break;
+                }
+                if(index == cursor->keysNumber - 1) {
+                    cursor = (Node*) cursor->pointers[index + 1];
+                    break;
+                }
             }
         }
     }
-
-    if(cursor->keysNumber < MAXKEYS) {
-        int index;
-        for(index = 0; index < cursor->keysNumber && key > cursor->keys[index]; index++);
-        shiftKeys(cursor, cursor->keysNumber, index, true);
-        cursor->keys[index] = key;
-        cursor->keysNumber++;
-        cursor->pointers[cursor->keysNumber] = cursor->pointers[cursor->keysNumber - 1];
-        cursor->pointers[cursor->keysNumber - 1] = NULL;
-    } else {
-        Node* newLeaf = createNode(true);
-        int index, signal;
-        int median = (MAXKEYS) / 2;
-        Record medianValue = cursor->keys[median];
-        for(index = 0, signal = median; index < median + 1; index++, signal++) {
-            newLeaf->keys[index] = cursor->keys[signal];
-        }
-        cursor->keysNumber = median;
-        newLeaf->keysNumber = median + 1;
-        if(key >= medianValue) {
-            for(index = 0; index < newLeaf->keysNumber && key > newLeaf->keys[index]; index++);
-            shiftKeys(newLeaf, newLeaf->keysNumber, index, true);
-            newLeaf->keys[index] = key;
-            newLeaf->keysNumber++;
-        } else {
-            for(index = 0; index < cursor->keysNumber && key > cursor->keys[index]; index++);
-            shiftKeys(cursor, cursor->keysNumber, index, true);
-            cursor->keys[index] = key;
-            cursor->keysNumber++;
-        }
-        cursor->pointers[cursor->keysNumber] = (void*) newLeaf;
-        newLeaf->pointers[newLeaf->keysNumber] = cursor->pointers[MAXKEYS];
-        cursor->pointers[MAXKEYS] = NULL;
-        if(!cursor->parent) {
-            Node* newRoot = createNode(false);
-            newRoot->keys[0] = newLeaf->keys[0];
-            newRoot->pointers[0] = (void*) cursor;
-            newRoot->pointers[1] = (void*) newLeaf;
-            newRoot->keysNumber = 1;
-            cursor->parent = newRoot;
-            newLeaf->parent = newRoot;
-            tree->root = newRoot;
-        } else {
-            //newLeaf->parent = cursor->parent;
-            printf("antes recursao %d\n", key);
-            insertInternal(tree, cursor->parent, newLeaf, medianValue);//newLeaf->keys[0]);
-        }
-    }
+    for(index = 0; index < cursor->keysNumber && key > cursor->keys[index]; index++);
+    shiftKeys(cursor, cursor->keysNumber, index, true);
+    cursor->keys[index] = key;
+    cursor->keysNumber++;
+    cursor->pointers[cursor->keysNumber] = cursor->pointers[cursor->keysNumber - 1];
+    cursor->pointers[cursor->keysNumber - 1] = NULL;
     return true;
 }
+

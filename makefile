@@ -1,8 +1,8 @@
-arvoreBmais: main.o btree.o
-	gcc -o arvoreBmais main.o btree.o
+arvoreBmais: main.o GabrielFelixDeSouzaLopes.o
+	gcc -o arvoreBmais main.o GabrielFelixDeSouzaLopes.o
 
 main.o: main.c btree.h
 	gcc -c main.c -Wall
 
-btree.o: btree.c btree.h
-	gcc -c btree.c -Wall
+GabrielFelixDeSouzaLopes.o: GabrielFelixDeSouzaLopes.c btree.h
+	gcc -c GabrielFelixDeSouzaLopes.c -Wall
